@@ -10,10 +10,11 @@ Tables
 Outputs
 
 1. By PL/SQL Query :
+   (Covered all test case which are mentioned in tulip task)
 
    <img width="822" height="409" alt="image" src="https://github.com/user-attachments/assets/e553b142-b8a1-449d-8347-ec61be05a305" />
 
-2. By SQL Query Table
+3. By SQL Query Table
 
    <img width="1133" height="247" alt="image" src="https://github.com/user-attachments/assets/8d982d16-85db-45de-a784-1b75afacd242" />
 
