@@ -1,0 +1,159 @@
+CREATE TABLE Students (
+  student_id   INT PRIMARY KEY,
+  student_name VARCHAR2(50),
+  course       VARCHAR2(30)
+);
+
+CREATE TABLE Marks (
+  student_id INT,
+  subject    VARCHAR2(30),
+  score      NUMBER,
+  CONSTRAINT fk_marks_students FOREIGN KEY (student_id) REFERENCES Students(student_id)
+);
+
+
+-- Sample data
+INSERT INTO Students(student_id, student_name, course) VALUES (1, 'Alice', 'Computer Science');
+INSERT INTO Students(student_id, student_name, course) VALUES (2, 'Bob',   'Computer Science');
+INSERT INTO Students(student_id, student_name, course) VALUES (3, 'Carol', 'Electronics');
+INSERT INTO Students(student_id, student_name, course) VALUES (4, 'Dave',  'Computer Science');
+
+INSERT INTO Students(student_id, student_name, course)
+VALUES(5, 'Dave',  'Computer Science'),
+      (6, 'Dave',  'Computer Science');
+
+SELECT * FROM Students;
+
+INSERT INTO Marks(student_id, subject, score) VALUES (1, 'Math',      95);
+INSERT INTO Marks(student_id, subject, score) VALUES (1, 'Algorithms',88);
+INSERT INTO Marks(student_id, subject, score) VALUES (2, 'Math',      78);
+INSERT INTO Marks(student_id, subject, score) VALUES (2, 'Algorithms',82);
+INSERT INTO Marks(student_id, subject, score) VALUES (3, 'Circuits',  67);
+
+SELECT * FROM Marks;
+
+
+-- Function of get Student Total
+
+
+CREATE OR REPLACE FUNCTION get_student_total (p_student_id IN NUMBER)
+RETURN NUMBER
+IS
+  v_total NUMBER;
+BEGIN
+  SELECT NVL(SUM(score), 0)
+  INTO   v_total
+  FROM   Marks
+  WHERE  student_id = p_student_id;
+
+  RETURN v_total;
+END;
+/
+
+
+-- Function of get Student Average
+
+
+CREATE OR REPLACE FUNCTION get_student_average (p_student_id IN NUMBER)
+RETURN NUMBER
+IS
+  v_avg NUMBER;
+BEGIN
+  SELECT AVG(score)  
+  INTO   v_avg
+  FROM   Marks
+  WHERE  student_id = p_student_id;
+
+  RETURN NVL(v_avg, 0); 
+END;
+/
+
+
+-- Function of Grade
+
+
+CREATE OR REPLACE FUNCTION get_grade (p_student_id IN NUMBER)
+RETURN VARCHAR2
+IS
+  v_avg   NUMBER;
+  v_grade VARCHAR2(3);
+BEGIN
+  v_avg := get_student_average(p_student_id);
+
+  -- If you prefer 'N/A' when a student has no marks, detect average=0 and no rows.
+  -- Here we treat 0 as "no marks" only if total is 0 and count=0.
+  IF get_student_total(p_student_id) = 0 THEN
+    RETURN 'N/A';
+  END IF;
+
+  IF v_avg >= 90 THEN
+    v_grade := 'A+';
+  ELSIF v_avg >= 80 THEN
+    v_grade := 'A';
+  ELSIF v_avg >= 70 THEN
+    v_grade := 'B';
+  ELSIF v_avg >= 60 THEN
+    v_grade := 'C';
+  ELSE
+    v_grade := 'F';
+  END IF;
+
+  RETURN v_grade;
+END;
+/
+
+-- Function of Course Topper
+
+CREATE OR REPLACE FUNCTION course_topper (p_course IN VARCHAR2)
+RETURN VARCHAR2
+IS
+  v_name  Students.student_name%TYPE;
+BEGIN
+  /* For Oracle 10g: order in a subquery then take ROWNUM = 1 */
+  SELECT student_name
+  INTO   v_name
+  FROM (
+    SELECT s.student_name,
+           NVL(SUM(m.score), 0) AS total_score
+    FROM   Students s
+           LEFT JOIN Marks m ON m.student_id = s.student_id
+    WHERE  s.course = p_course
+    GROUP  BY s.student_name
+    ORDER  BY total_score DESC, s.student_name
+  )
+  WHERE ROWNUM = 1;
+
+  -- If the course has no students at all, the SELECT will raise NO_DATA_FOUND.
+  RETURN v_name;
+EXCEPTION
+  WHEN NO_DATA_FOUND THEN
+    RETURN 'N/A';
+END;
+/
+
+
+
+
+BEGIN
+  DBMS_OUTPUT.PUT_LINE('Total (Alice, id=1): ' || get_student_total(1));
+  DBMS_OUTPUT.PUT_LINE('Average (Alice, id=1): ' || TO_CHAR(get_student_average(1), '990.99'));
+  DBMS_OUTPUT.PUT_LINE('Grade (Alice, id=1): ' || get_grade(1));
+
+  DBMS_OUTPUT.PUT_LINE('Topper - Computer Science: ' || course_topper('Computer Science'));
+  DBMS_OUTPUT.PUT_LINE('Topper - Electronics: ' || course_topper('Electronics'));
+  DBMS_OUTPUT.PUT_LINE('Topper - Mechanical: ' || course_topper('Mechanical')); 
+END;
+/
+
+-- Test by SQL Queries for Verify Results
+SELECT s.student_id,
+       s.student_name,
+       get_student_total(s.student_id)   AS total_marks,
+       get_student_average(s.student_id) AS avg_marks,
+       get_grade(s.student_id)           AS grade
+FROM   Students s
+ORDER  BY s.student_id;
+
+-- Ask for a course topper directly
+SELECT course_topper('Computer Science') AS cs_topper FROM dual;
+SELECT course_topper('Electronics')      AS ece_topper FROM dual;
